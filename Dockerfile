@@ -1,5 +1,4 @@
 FROM ruby:3.0-alpine3.12
-# FROM ruby:2.5-alpine
 
 WORKDIR /usr/src/app
 
