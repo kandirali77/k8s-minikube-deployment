@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-server-deployment
+  labels:
+    app: http-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: http-server
+  template:
+    metadata:
+      labels:
+        app: http-server
+    spec:
+      containers:
+      - name: http-server
+        image: local/http_server:0.0.1
+        ports:
+        - name: http-port
+          containerPort: 80
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - '[[ $(/usr/bin/curl --http0.9 -s http://localhost/healthcheck) == "OK" ]]'
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - '[[ $(/usr/bin/curl --http0.9 -s http://localhost/healthcheck) == "OK" ]]'
+          initialDelaySeconds: 5
+          periodSeconds: 5
