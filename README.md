@@ -1,11 +1,22 @@
 # k8s-minikube-deployment
 This repo will have files to build and deploy a simple ruby webserver on minikube
-Our test environment is MacbookAir running MacOS Big Sur 11.6 with 8Gb memory on Intel architecture
+My test environment is MacbookAir running MacOS Big Sur 11.6 with 8Gb memory on Intel architecture
 
 The simple webserver will be taken from https://github.com/sawasy/http_server
 
+## Installation of kubernetes
+We need to install kubernetes for deploying and running the dockerized images. You may follow the instructions here:
+https://kubernetes.io/docs/tasks/tools/ depending on your operating system.  
+On Mac I have installed kubectl with homebrew: https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/#install-with-homebrew-on-macos  
+```bash
+$ brew install kubectl
+```
+
 ## Installation of minikube
 When you install minikube on your local machine you may follow this instructions: https://minikube.sigs.k8s.io/docs/start/
+```bash
+$ brew install minikube
+```
 
 If you already have a local installation and the start up has problems do the following:  
 ***ref***: https://github.com/kubernetes/minikube/issues/8770 and https://github.com/kubernetes/minikube/issues/11417
@@ -92,6 +103,52 @@ we have to use 3.12 version of alpine. The issue was reported here: https://gith
 
 To create you docker images on local minikube instance:
 ```bash
-docker build -t local/http_server:0.0.1 .
+$ docker build -t local/http_server:0.0.1 .
 ```
 The above command will build the docker image and keep it in local images of minikube. We will use this image on kubernetes deploys.
+
+## Deploying http_server with kubernetes
+I have prepared kubernetes files under "k8s" folder. These files will deploy the http_server with two replicas and a service. The ingress will ensure the dns resolution of "http-server.test" will reply in a load balanced manner with readiness and liveness probes.   
+Readiness probe on deployment will not forward traffic to the pods until it is ready and liveness probe will make sure that pods keep running.
+
+To deploy the application run the following command from the root directory of this project:
+
+```bash
+$ kubectl create -f k8s
+deployment.apps/http-server-deployment created
+ingress.networking.k8s.io/http-server-ingress created
+service/http-server created
+service/http-server created
+```
+
+# Strategy/Architecture of the http_server application deployment
+The strategy behind this setup is to deploy a simple ruby application with readiness and liveness probes. The application has an endpoint for health checks on "/healthcheck" but it does not return any HTTP header code. Besides the application returns text with HTTP0.9 and kubernetes health checks require HTTP1.1 to function properly.  
+I have overcome this problem with "exec" probe. I curled ***http://localhost/healthcheck*** and compared returned text with "OK" returning "0" when the text is correct. This way, we are sure that the container is running and operating normally. The readiness probe will forward traffic once the container is up and running and liveness probe will restart the container when the returned value from probe is non-zero.
+```bash
+livenessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - '[[ $(/usr/bin/curl --http0.9 -s http://localhost/healthcheck) == "OK" ]]'
+  initialDelaySeconds: 15
+  periodSeconds: 5
+readinessProbe:
+  exec:
+    command:
+    - /bin/sh
+    - -c
+    - '[[ $(/usr/bin/curl --http0.9 -s http://localhost/healthcheck) == "OK" ]]'
+```
+
+The planned architecture for the http_server deployment is here:  
+![The architecture diagram of minikube deployment!](/k8s-minikube-http_server.png "Architecture diagram of minikube deployment")
+
+# Step-by-step installation instructions
+Please follow [INSTALL.md](INSTALL.md) file for the instructions. 
+
+# How to connect to the running application
+Once all steps are followed from this readme file, you can open your favourite browser and type "http://http-server.test"  
+You will see a similar result as below:  
+
+![Web browser request and result](/firefox-web-response.png "Web browser request and result")
