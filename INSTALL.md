@@ -11,6 +11,7 @@ $ brew install minikube
 
 3. Enable docker-env feature
 ```bash
+$ minikube start
 $ eval $(minikube -p minikube docker-env)
 ```
 
